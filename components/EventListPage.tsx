@@ -16,10 +16,13 @@ const EventListPage: React.FC<EventListPageProps> = ({ events, onCreateEvent, on
   return (
     <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-slate-800">Your Secret Santa Events</h2>
+            <h2 className="text-4xl font-bold text-slate-800">Your Secret Santa Events</h2>
             <p className="text-slate-500 mt-2">Manage your existing events or start a new one.</p>
-            <div className="mt-6">
-                <Button onClick={onCreateEvent} className="inline-block w-auto px-8">
+            <div className="mt-8">
+                <Button 
+                    onClick={onCreateEvent} 
+                    className="inline-block w-auto px-10 !py-3.5 text-base bg-red-600 hover:bg-red-700 focus:ring-red-400"
+                >
                     Create a New Event
                 </Button>
             </div>
@@ -58,8 +61,8 @@ const EventListPage: React.FC<EventListPageProps> = ({ events, onCreateEvent, on
                 ))}
             </div>
         ) : (
-            <Card className="text-center py-12">
-                <h3 className="text-xl font-semibold text-slate-700">No events yet!</h3>
+            <Card className="text-center py-16">
+                <h3 className="text-2xl font-bold text-slate-700">No events yet!</h3>
                 <p className="text-slate-500 mt-2">Click the button above to create your first Secret Santa event.</p>
             </Card>
         )}

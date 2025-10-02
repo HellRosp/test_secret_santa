@@ -82,9 +82,11 @@ const App: React.FC = () => {
     setAppState('editing');
   };
 
+  // This function correctly filters the events array, removing the event with the matching id.
+  // When state is updated, React re-renders the component, and the deleted event disappears.
   const handleDeleteEvent = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this event?")) {
-        setEvents(prev => prev.filter(e => e.id !== id));
+    if (window.confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
+        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
     }
   };
   
@@ -184,7 +186,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen font-sans">
+    <div className="bg-slate-50 min-h-screen font-sans">
       <Header onGoHome={goHome} />
       <main className="container mx-auto px-4 py-8">
         {renderContent()}
