@@ -1,0 +1,5 @@
+{
+  "name": "Secret Santa Fun",
+  "description": "An application to organize a Secret Santa event. Create an event, set a budget and date, invite friends, and let the app randomly assign Santas. Participants can send anonymous messages once they've bought their gift.",
+  "requestFramePermissions": []
+}
