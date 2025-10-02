@@ -8,7 +8,7 @@ interface AssignmentViewProps {
   viewer: Participant;
   assignee: Participant;
   receivedMessages: string[];
-  onSendMessage: (receiverId: number, message: string) => void;
+  onSendMessage: (senderId: number, receiverId: number, message: string) => void;
   eventDetails: EventDetails;
   onGoBack: () => void;
 }
@@ -16,8 +16,8 @@ interface AssignmentViewProps {
 const AssignmentView: React.FC<AssignmentViewProps> = ({ viewer, assignee, receivedMessages, onSendMessage, eventDetails, onGoBack }) => {
 
   const handleSendMessage = () => {
-    if (assignee) {
-      onSendMessage(assignee.id, "Hey! Your Secret Santa has your gift and is ready when you are!");
+    if (viewer && assignee) {
+      onSendMessage(viewer.id, assignee.id, "Hey! Your Secret Santa has your gift and is ready when you are!");
       alert("Anonymous message sent!");
     }
   };
@@ -48,8 +48,9 @@ const AssignmentView: React.FC<AssignmentViewProps> = ({ viewer, assignee, recei
                     <Button 
                         variant="secondary"
                         onClick={handleSendMessage}
+                        disabled={viewer.hasGift}
                     >
-                        Notify them you have their gift!
+                        {viewer.hasGift ? 'Notification Sent!' : 'Notify them you have their gift!'}
                     </Button>
                 </div>
             </Card>

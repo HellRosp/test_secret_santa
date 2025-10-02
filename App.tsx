@@ -1,201 +1,223 @@
-import React, { useState, useEffect } from 'react';
-import { EventDetails, Participant, SecretSantaEvent } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { SecretSantaEvent, EventDetails, Participant } from './types';
 import Header from './components/Header';
+import EventListPage from './components/EventListPage';
 import CreateEventForm from './components/CreateEventForm';
 import JoinEventPage from './components/JoinEventPage';
 import AssignmentsSentPage from './components/AssignmentsSentPage';
 import AssignmentView from './components/AssignmentView';
-import EventListPage from './components/EventListPage';
-
-type AppState = 'dashboard' | 'creating' | 'editing' | 'joining' | 'viewing_assignments_list' | 'viewing_single_assignment';
-
-// A simple shuffle function for assignments
-const shuffle = <T,>(array: T[]): T[] => {
-  let currentIndex = array.length, randomIndex;
-  while (currentIndex !== 0) {
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-  }
-  return array;
-};
+import ConfirmationModal from './components/ConfirmationModal';
 
 const App: React.FC = () => {
-  const [events, setEvents] = useState<SecretSantaEvent[]>(() => {
-    try {
-        const savedEvents = localStorage.getItem('secretSantaEvents');
-        return savedEvents ? JSON.parse(savedEvents) : [];
-    } catch (error) {
-        console.error("Failed to parse events from localStorage", error);
-        return [];
-    }
-  });
+    const [events, setEvents] = useState<SecretSantaEvent[]>([]);
+    const [view, setView] = useState<'list' | 'create' | 'edit' | 'join' | 'assignments_sent' | 'assignment_view'>('list');
+    const [activeEventId, setActiveEventId] = useState<string | null>(null);
+    const [viewingParticipantId, setViewingParticipantId] = useState<number | null>(null);
+    const [editingEventId, setEditingEventId] = useState<string | null>(null);
+    const [eventToDeleteId, setEventToDeleteId] = useState<string | null>(null);
 
-  const [appState, setAppState] = useState<AppState>('dashboard');
-  const [currentEventId, setCurrentEventId] = useState<string | null>(null);
-  const [viewingAs, setViewingAs] = useState<Participant | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem('secretSantaEvents', JSON.stringify(events));
-  }, [events]);
-
-  const currentEvent = events.find(e => e.id === currentEventId);
-
-  const goHome = () => {
-    setAppState('dashboard');
-    setCurrentEventId(null);
-    setViewingAs(null);
-  };
-  
-  const handleSaveEvent = (details: EventDetails) => {
-    if (appState === 'editing' && currentEventId) {
-        // Update existing event
-        setEvents(prev => prev.map(e => e.id === currentEventId ? { ...e, details } : e));
-    } else {
-        // Create new event
-        const newEvent: SecretSantaEvent = {
-            id: crypto.randomUUID(),
-            details,
-            participants: [],
-            assignments: {},
-            messages: {},
-            status: 'setup'
-        };
-        setEvents(prev => [...prev, newEvent]);
-    }
-    goHome();
-  };
-
-  const handleSelectEvent = (id: string) => {
-    const event = events.find(e => e.id === id);
-    if (!event) return;
-    setCurrentEventId(id);
-    if (event.status === 'setup') {
-        setAppState('joining');
-    } else {
-        setAppState('viewing_assignments_list');
-    }
-  };
-
-  const handleEditEvent = (id: string) => {
-    setCurrentEventId(id);
-    setAppState('editing');
-  };
-
-  // This function correctly filters the events array, removing the event with the matching id.
-  // When state is updated, React re-renders the component, and the deleted event disappears.
-  const handleDeleteEvent = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
-        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
-    }
-  };
-  
-  const handleParticipantAdded = (name: string, emoji: string, code: string) => {
-    if (!currentEvent) return;
-    const newParticipant: Participant = { id: (currentEvent.participants.length || 0) + 1, name, emoji, code };
-    setEvents(prev => prev.map(e => e.id === currentEventId ? { ...e, participants: [...e.participants, newParticipant]} : e));
-  };
-  
-  const handleAssignments = () => {
-    if (!currentEvent || currentEvent.participants.length < 2) {
-      alert("You need at least 2 participants to make assignments.");
-      return;
-    }
-    const participantIds = currentEvent.participants.map(p => p.id);
-    const shuffledIds = shuffle([...participantIds]);
-    
-    const newAssignments: Record<number, number> = {};
-    for (let i = 0; i < shuffledIds.length; i++) {
-        newAssignments[shuffledIds[i]] = shuffledIds[(i + 1) % shuffledIds.length];
-    }
-    setEvents(prev => prev.map(e => e.id === currentEventId ? { ...e, assignments: newAssignments, status: 'assignments_made' } : e));
-    setAppState('viewing_assignments_list');
-  };
-
-  const handleSelectParticipant = (id: number) => {
-    const participant = currentEvent?.participants.find(p => p.id === id);
-    if (participant) {
-      setViewingAs(participant);
-      setAppState('viewing_single_assignment');
-    }
-  };
-  
-  const handleSendMessage = (receiverId: number, message: string) => {
-    if (!currentEventId) return;
-    setEvents(prev => prev.map(e => {
-        if (e.id === currentEventId) {
-            const newMessages = { ...e.messages };
-            const currentMessages = newMessages[receiverId] || [];
-            newMessages[receiverId] = [...currentMessages, message];
-            return { ...e, messages: newMessages };
+    useEffect(() => {
+        try {
+            const savedEvents = localStorage.getItem('secretSantaEvents');
+            if (savedEvents) {
+                setEvents(JSON.parse(savedEvents));
+            }
+        } catch (error) {
+            console.error("Failed to load events from local storage", error);
         }
-        return e;
-    }));
-  };
+    }, []);
 
-  const handleGoBackToAssignmentsList = () => {
-      setViewingAs(null);
-      setAppState('viewing_assignments_list');
-  };
+    useEffect(() => {
+        try {
+            localStorage.setItem('secretSantaEvents', JSON.stringify(events));
+        } catch (error) {
+            console.error("Failed to save events to local storage", error);
+        }
+    }, [events]);
 
-  const renderContent = () => {
-    switch(appState) {
-      case 'dashboard':
-        return <EventListPage 
-            events={events} 
-            onCreateEvent={() => setAppState('creating')} 
-            onSelectEvent={handleSelectEvent}
-            onEditEvent={handleEditEvent}
-            onDeleteEvent={handleDeleteEvent}
-            />;
-      case 'creating':
-        return <CreateEventForm onSave={handleSaveEvent} onCancel={goHome} />;
-      case 'editing':
-        if (!currentEvent) return null;
-        return <CreateEventForm onSave={handleSaveEvent} onCancel={goHome} initialData={currentEvent.details} />;
-      case 'joining':
-        if (!currentEvent) return null;
-        return <JoinEventPage 
-            event={currentEvent}
-            onParticipantAdded={handleParticipantAdded}
-            onStartAssignments={handleAssignments}
-            onGoHome={goHome}
-            />;
-      case 'viewing_assignments_list':
-          if (!currentEvent) return null;
-          return <AssignmentsSentPage 
-            participants={currentEvent.participants} 
-            onSelectParticipant={handleSelectParticipant} />;
-      case 'viewing_single_assignment':
-        if (!viewingAs || !currentEvent) return null;
-        const assigneeId = currentEvent.assignments[viewingAs.id];
-        const assignee = currentEvent.participants.find(p => p.id === assigneeId);
-        if (!assignee) return <p>Error: could not find assignment.</p>;
-        const receivedMessages = currentEvent.messages[viewingAs.id] || [];
-        return <AssignmentView 
-            viewer={viewingAs}
-            assignee={assignee}
-            receivedMessages={receivedMessages}
-            onSendMessage={handleSendMessage}
-            eventDetails={currentEvent.details}
-            onGoBack={handleGoBackToAssignmentsList}
-            />;
-      default:
-        return <EventListPage events={events} onCreateEvent={() => setAppState('creating')} onSelectEvent={handleSelectEvent} onEditEvent={handleEditEvent} onDeleteEvent={handleDeleteEvent} />;
+    const activeEvent = useMemo(() => events.find(e => e.id === activeEventId), [events, activeEventId]);
+    const editingEventInitialData = useMemo(() => events.find(e => e.id === editingEventId)?.details, [events, editingEventId]);
+    
+    const goHome = () => {
+        setView('list');
+        setActiveEventId(null);
+        setViewingParticipantId(null);
+        setEditingEventId(null);
+    };
+
+    const handleSaveEvent = (details: EventDetails) => {
+        if (editingEventId) { // Editing existing event
+            setEvents(prev => prev.map(e => e.id === editingEventId ? { ...e, details } : e));
+            setActiveEventId(editingEventId);
+            setView('join');
+        } else { // Creating new event
+            const newEvent: SecretSantaEvent = {
+                id: `evt-${Date.now()}`,
+                details,
+                participants: [],
+                assignments: {},
+                messages: {},
+                status: 'setup',
+            };
+            setEvents(prev => [...prev, newEvent]);
+            setActiveEventId(newEvent.id);
+            setView('join');
+        }
+        setEditingEventId(null);
+    };
+
+    const handleAddParticipant = (name: string, emoji: string, code: string) => {
+        if (!activeEventId) return;
+        setEvents(prev => prev.map(e => {
+            if (e.id === activeEventId) {
+                const newParticipant: Participant = {
+                    id: e.participants.length > 0 ? Math.max(...e.participants.map(p => p.id)) + 1 : 1,
+                    name,
+                    emoji,
+                    code,
+                    hasGift: false,
+                };
+                return { ...e, participants: [...e.participants, newParticipant] };
+            }
+            return e;
+        }));
+    };
+
+    const makeAssignments = (participants: Participant[]): Record<number, number> => {
+        const ids = participants.map(p => p.id);
+        let receivers = [...ids];
+        const assignments: Record<number, number> = {};
+        let valid = false;
+      
+        while (!valid) {
+          // Shuffle receivers
+          for (let i = receivers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [receivers[i], receivers[j]] = [receivers[j], receivers[i]];
+          }
+      
+          // Check for self-assignment
+          valid = true;
+          for (let i = 0; i < ids.length; i++) {
+            if (ids[i] === receivers[i]) {
+              valid = false;
+              break;
+            }
+          }
+        }
+      
+        for (let i = 0; i < ids.length; i++) {
+          assignments[ids[i]] = receivers[i];
+        }
+      
+        return assignments;
+    };
+      
+
+    const handleStartAssignments = () => {
+        if (!activeEvent || activeEvent.participants.length < 2) return;
+        const assignments = makeAssignments(activeEvent.participants);
+        setEvents(prev => prev.map(e => 
+            e.id === activeEventId ? { ...e, assignments, status: 'assignments_made' } : e
+        ));
+        setView('assignments_sent');
+    };
+
+    const handleSendMessage = (senderId: number, receiverId: number, message: string) => {
+        if (!activeEventId) return;
+        setEvents(prev => prev.map(e => {
+            if (e.id === activeEventId) {
+                const newMessages = { ...e.messages };
+                if (!newMessages[receiverId]) {
+                    newMessages[receiverId] = [];
+                }
+                newMessages[receiverId].push(message);
+
+                const newParticipants = e.participants.map(p => p.id === senderId ? {...p, hasGift: true} : p)
+
+                return { ...e, messages: newMessages, participants: newParticipants };
+            }
+            return e;
+        }));
     }
-  };
 
-  return (
-    <div className="bg-slate-50 min-h-screen font-sans">
-      <Header onGoHome={goHome} />
-      <main className="container mx-auto px-4 py-8">
-        {renderContent()}
-      </main>
-      <footer className="text-center py-4 text-slate-500 text-sm">
-        <p>Secret Santa App powered by React &amp; TypeScript.</p>
-      </footer>
-    </div>
-  );
+    const handleDeleteEvent = (id: string) => {
+        setEvents(prev => prev.filter(e => e.id !== id));
+        setEventToDeleteId(null);
+        if (activeEventId === id) {
+            goHome();
+        }
+    };
+
+    const renderContent = () => {
+        switch (view) {
+            case 'create':
+                return <CreateEventForm onSave={handleSaveEvent} onCancel={goHome} />;
+            case 'edit':
+                return <CreateEventForm onSave={handleSaveEvent} onCancel={() => { setView('join'); setEditingEventId(null); }} initialData={editingEventInitialData} />;
+            case 'join':
+                if (activeEvent) {
+                    return <JoinEventPage 
+                        event={activeEvent} 
+                        onParticipantAdded={handleAddParticipant}
+                        onStartAssignments={handleStartAssignments}
+                        onGoHome={goHome}
+                    />;
+                }
+                return null;
+            case 'assignments_sent':
+                if (activeEvent) {
+                    return <AssignmentsSentPage 
+                        participants={activeEvent.participants}
+                        onSelectParticipant={(id) => { setViewingParticipantId(id); setView('assignment_view'); }}
+                    />
+                }
+                return null;
+            case 'assignment_view':
+                if (activeEvent && viewingParticipantId) {
+                    const viewer = activeEvent.participants.find(p => p.id === viewingParticipantId);
+                    const assigneeId = activeEvent.assignments[viewingParticipantId];
+                    const assignee = activeEvent.participants.find(p => p.id === assigneeId);
+                    if (viewer && assignee) {
+                        return <AssignmentView 
+                            viewer={viewer}
+                            assignee={assignee}
+                            receivedMessages={activeEvent.messages[viewer.id] || []}
+                            onSendMessage={handleSendMessage}
+                            eventDetails={activeEvent.details}
+                            onGoBack={() => { setViewingParticipantId(null); setView('assignments_sent'); }}
+                        />;
+                    }
+                }
+                return null;
+            case 'list':
+            default:
+                return <EventListPage 
+                    events={events}
+                    onCreateNewEvent={() => setView('create')}
+                    onJoinEvent={(id) => { setActiveEventId(id); setView('join'); }}
+                    onViewAssignments={(id) => { setActiveEventId(id); setView('assignments_sent'); }}
+                    onEditEvent={(id) => { setEditingEventId(id); setActiveEventId(id); setView('edit'); }}
+                    onDeleteEvent={(id) => setEventToDeleteId(id)}
+                />;
+        }
+    }
+
+    return (
+        <div className="bg-slate-50 min-h-screen">
+            <Header onGoHome={goHome} />
+            <main className="container mx-auto px-4 py-8">
+                {renderContent()}
+            </main>
+            <ConfirmationModal
+                isOpen={!!eventToDeleteId}
+                onClose={() => setEventToDeleteId(null)}
+                onConfirm={() => eventToDeleteId && handleDeleteEvent(eventToDeleteId)}
+                title="Delete Event?"
+                message="Are you sure you want to delete this event? This action cannot be undone."
+            />
+        </div>
+    );
 };
 
 export default App;

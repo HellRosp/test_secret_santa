@@ -3,6 +3,7 @@ import { SecretSantaEvent } from '../types';
 import Card from './Card';
 import Input from './Input';
 import Button from './Button';
+import GiftIcon from './icons/GiftIcon';
 
 interface JoinEventPageProps {
   event: SecretSantaEvent;
@@ -86,6 +87,7 @@ const JoinEventPage: React.FC<JoinEventPageProps> = ({ event, onParticipantAdded
                         <li key={p.id} className="bg-slate-100 p-3 rounded-lg text-slate-700 flex items-center">
                             <span className="text-xl mr-3">{p.emoji}</span>
                             <span>{p.name}</span>
+                            {p.hasGift && <GiftIcon className="w-5 h-5 ml-auto text-green-500" title={`${p.name} has their gift!`} />}
                         </li>
                     ))}
                 </ul>

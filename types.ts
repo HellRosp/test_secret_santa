@@ -3,6 +3,7 @@ export interface Participant {
   name: string;
   emoji: string;
   code: string;
+  hasGift?: boolean;
 }
 
 export interface EventDetails {
